@@ -1,5 +1,5 @@
 # ADF-Test
-Practice repo for Azure
+Sample repo for Azure experimentation
 
 Simple edits
 
