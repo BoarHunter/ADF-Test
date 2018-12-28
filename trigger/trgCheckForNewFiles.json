@@ -1,0 +1,23 @@
+{
+	"name": "trgCheckForNewFiles",
+	"properties": {
+		"runtimeState": "Stopped",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "pl_ProcessFolder",
+					"type": "PipelineReference"
+				}
+			}
+		],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Hour",
+				"interval": 1,
+				"startTime": "2018-12-10T22:14:00Z",
+				"timeZone": "UTC"
+			}
+		}
+	}
+}

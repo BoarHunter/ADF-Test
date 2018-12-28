@@ -1,0 +1,14 @@
+{
+	"name": "AzureBlob1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureBlobStorageTestGetFiles",
+			"type": "LinkedServiceReference"
+		},
+		"type": "AzureBlob",
+		"typeProperties": {
+			"folderPath": "pwcontainer"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

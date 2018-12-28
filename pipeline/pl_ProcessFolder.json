@@ -1,0 +1,375 @@
+{
+	"name": "pl_ProcessFolder",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Metadata from Source Folder",
+				"type": "GetMetadata",
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "FileShare1",
+						"type": "DatasetReference"
+					},
+					"fieldList": [
+						"childItems"
+					]
+				}
+			},
+			{
+				"name": "For Each File in Source Folder",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Set FolderReadSet Variable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get Metadata from Source Folder').output.childItems",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"activities": [
+						{
+							"name": "getMDfor Files",
+							"type": "GetMetadata",
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "FileShare2",
+									"type": "DatasetReference"
+								},
+								"fieldList": [
+									"itemName",
+									"lastModified",
+									"size",
+									"itemType"
+								]
+							}
+						},
+						{
+							"name": "Call SP for File Details",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "getMDfor Files",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"typeProperties": {
+								"source": {
+									"type": "SqlSource",
+									"sqlReaderStoredProcedureName": "[auditing].[usp_GetFlatFileCopyDetails]",
+									"storedProcedureParameters": {
+										"Filename": {
+											"type": "String",
+											"value": {
+												"value": "@activity('getMDfor Files').output.itemName",
+												"type": "Expression"
+											}
+										},
+										"FolderReadSet": {
+											"type": "Int64",
+											"value": {
+												"value": "@variables('FolderReadSet')",
+												"type": "Expression"
+											}
+										},
+										"LastModified": {
+											"type": "DateTime",
+											"value": {
+												"value": "@activity('getMDfor Files').output.lastModified",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								"dataset": {
+									"referenceName": "AzureSqlTable1",
+									"type": "DatasetReference"
+								},
+								"firstRowOnly": true
+							}
+						},
+						{
+							"name": "If Newer File",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Set Current File Variable",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Call SP for File Details",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(activity('Call SP for File Details').output.firstRow.ReturnCode,0)",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Copy Data - Newer File",
+										"type": "Copy",
+										"policy": {
+											"timeout": "7.00:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"typeProperties": {
+											"source": {
+												"type": "FileSystemSource",
+												"recursive": false
+											},
+											"sink": {
+												"type": "BlobSink"
+											},
+											"enableStaging": false,
+											"dataIntegrationUnits": 0
+										},
+										"inputs": [
+											{
+												"referenceName": "FileShare2",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "AzureBlob1",
+												"type": "DatasetReference"
+											}
+										]
+									},
+									{
+										"name": "usp_RecordFlatFileCopyDetails",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [
+											{
+												"activity": "Copy Data - Newer File",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "7.00:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"typeProperties": {
+											"storedProcedureName": "[auditing].[usp_RecordFlatFileCopyDetails]",
+											"storedProcedureParameters": {
+												"Filename": {
+													"value": {
+														"value": "@activity('getMDfor Files').output.itemName",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"LastModified": {
+													"value": {
+														"value": "@activity('getMDfor Files').output.lastModified",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"Size": {
+													"value": {
+														"value": "@activity('getMDfor Files').output.size",
+														"type": "Expression"
+													},
+													"type": "Int64"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "AzureSqlDatabase1",
+											"type": "LinkedServiceReference"
+										}
+									},
+									{
+										"name": "Web1",
+										"type": "WebActivity",
+										"dependsOn": [
+											{
+												"activity": "usp_RecordFlatFileCopyDetails",
+												"dependencyConditions": [
+													"Failed"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "7.00:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"typeProperties": {
+											"url": "https://prod-27.eastus.logic.azure.com:443/workflows/e7a44bbc642144f1baddf4f9aaf103c6/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=qSXSGsakKVjxf1jT52yYScbV3kv0cqsVq0mFdU5Y9Yk",
+											"method": "POST",
+											"body": {
+												"dataFactoryName": "@{pipeline().DataFactory}",
+												"importance": "High",
+												"pipelineAuditID": 11,
+												"SendToEmail": "tpantazi@pragmaticworks.com"
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "Set Current File Variable",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "getMDfor Files",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"typeProperties": {
+								"variableName": "CurrentFile",
+								"value": {
+									"value": "@activity('getMDfor Files').output.itemName",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set FolderReadSet Variable",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Lookup1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"typeProperties": {
+					"variableName": "FolderReadSet",
+					"value": {
+						"value": "@string(activity('Lookup1').output.firstRow.FolderReadSet)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Lookup1",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Get Metadata from Source Folder",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"typeProperties": {
+					"source": {
+						"type": "SqlSource",
+						"sqlReaderStoredProcedureName": "[auditing].[usp_GetNextFolderReadSet]"
+					},
+					"dataset": {
+						"referenceName": "AzureSqlTable1",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "WebEmail",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "For Each File in Source Folder",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"typeProperties": {
+					"url": "https://prod-27.eastus.logic.azure.com:443/workflows/e7a44bbc642144f1baddf4f9aaf103c6/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=qSXSGsakKVjxf1jT52yYScbV3kv0cqsVq0mFdU5Y9Yk",
+					"method": "POST",
+					"body": {
+						"value": "{\"dataFactoryName\":\"@{pipeline().DataFactory}\",\"pipelineAuditID\":63,\"SendToEmail\":\"tpantazi@pragmaticworks.com\"}",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"variables": {
+			"CurrentFile": {
+				"type": "String"
+			},
+			"LastModified": {
+				"type": "String"
+			},
+			"RetVal": {
+				"type": "String"
+			},
+			"FolderReadSet": {
+				"type": "String"
+			},
+			"PipeLineID": {
+				"type": "String",
+				"defaultValue": "65"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

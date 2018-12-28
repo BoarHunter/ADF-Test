@@ -1,0 +1,6 @@
+{
+	"name": "TPintegrationRuntime1",
+	"properties": {
+		"type": "SelfHosted"
+	}
+}

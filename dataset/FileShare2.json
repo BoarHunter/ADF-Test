@@ -1,0 +1,18 @@
+{
+	"name": "FileShare2",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "linkedService2",
+			"type": "LinkedServiceReference"
+		},
+		"type": "FileShare",
+		"typeProperties": {
+			"fileName": {
+				"value": "@{item().name}",
+				"type": "Expression"
+			},
+			"folderPath": ""
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
