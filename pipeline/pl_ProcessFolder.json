@@ -281,7 +281,7 @@
 				"type": "SetVariable",
 				"dependsOn": [
 					{
-						"activity": "Lookup1",
+						"activity": "Lookup Folder Read Set ID",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -296,7 +296,7 @@
 				}
 			},
 			{
-				"name": "Lookup1",
+				"name": "Lookup Folder Read Set ID",
 				"type": "Lookup",
 				"dependsOn": [
 					{
